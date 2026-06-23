@@ -17,6 +17,13 @@ router.get("/categories/:id", validate(v.category.byId), c.categories.get);
 router.patch("/categories/:id", validate(v.category.update), c.categories.update);
 router.delete("/categories/:id", validate(v.category.byId), c.categories.remove);
 
+// Languages
+router.get("/languages", c.languages.list);
+router.post("/languages", validate(v.language.create), c.languages.create);
+router.get("/languages/:id", validate(v.language.byId), c.languages.get);
+router.patch("/languages/:id", validate(v.language.update), c.languages.update);
+router.delete("/languages/:id", validate(v.language.byId), c.languages.remove);
+
 // Titles
 router.get("/titles", c.titles.list);
 router.post("/titles", validate(v.title.create), c.titles.create);

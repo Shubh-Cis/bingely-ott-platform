@@ -10,7 +10,7 @@ function hueFor(str = "") {
 // An <img> that gracefully degrades. If the source is missing or fails to load
 // (e.g. the legacy localhost:4000 host is offline), it renders a branded
 // gradient tile with the title — so it looks intentional, never broken.
-export default function SmartImage({ src, alt = "", className = "", label = "" }) {
+export default function SmartImage({ src, alt = "", className = "", label = "", onLoad }) {
   const [failed, setFailed] = useState(false);
   const showFallback = !src || failed;
 
@@ -35,7 +35,11 @@ export default function SmartImage({ src, alt = "", className = "", label = "" }
       src={src}
       alt={alt}
       loading="lazy"
+      // Fire onLoad immediately for images the browser already cached (their
+      // `load` event won't fire again), so size-aware callers measure reliably.
+      ref={(node) => { if (node && node.complete && node.naturalWidth && onLoad) onLoad({ target: node }); }}
       onError={() => setFailed(true)}
+      onLoad={onLoad}
       className={className}
     />
   );

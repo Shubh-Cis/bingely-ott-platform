@@ -5,6 +5,7 @@ const { ok, created } = require("../utils/ApiResponse");
 const audit = require("../services/audit.service");
 
 const categoryService = require("../services/category.service");
+const languageService = require("../services/language.service");
 const titleService = require("../services/title.service");
 const railService = require("../services/rail.service");
 const seasonService = require("../services/season.service");
@@ -30,6 +31,27 @@ const categories = {
   remove: asyncHandler(async (req, res) => {
     await categoryService.remove(req.params.id);
     await audit.record(req.auth, "category.delete", "Category", req.params.id);
+    return ok(res, null, "Deleted");
+  }),
+};
+
+// ---- Languages -------------------------------------------------------------
+const languages = {
+  list: asyncHandler(async (_req, res) => ok(res, await languageService.list())),
+  get: asyncHandler(async (req, res) => ok(res, await languageService.getById(req.params.id))),
+  create: asyncHandler(async (req, res) => {
+    const l = await languageService.create(req.body);
+    await audit.record(req.auth, "language.create", "Language", l.id);
+    return created(res, l);
+  }),
+  update: asyncHandler(async (req, res) => {
+    const l = await languageService.update(req.params.id, req.body);
+    await audit.record(req.auth, "language.update", "Language", l.id);
+    return ok(res, l);
+  }),
+  remove: asyncHandler(async (req, res) => {
+    await languageService.remove(req.params.id);
+    await audit.record(req.auth, "language.delete", "Language", req.params.id);
     return ok(res, null, "Deleted");
   }),
 };
@@ -153,4 +175,4 @@ const settings = {
   }),
 };
 
-module.exports = { categories, titles, rails, seasons, episodes, collections, heroes, settings };
+module.exports = { categories, languages, titles, rails, seasons, episodes, collections, heroes, settings };

@@ -20,6 +20,7 @@ import Dashboard from "../pages/admin/Dashboard";
 import Titles from "../pages/admin/Titles";
 import TitleForm from "../pages/admin/TitleForm";
 import Categories from "../pages/admin/Categories";
+import Languages from "../pages/admin/Languages";
 import Rails from "../pages/admin/Rails";
 import Heroes from "../pages/admin/Heroes";
 import Media from "../pages/admin/Media";
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
       { path: "titles", element: <Titles /> },
       { path: "titles/:id", element: <TitleForm /> },
       { path: "categories", element: <Categories /> },
+      { path: "languages", element: <Languages /> },
       { path: "rails", element: <Rails /> },
       { path: "heroes", element: <Heroes /> },
       { path: "media", element: <Media /> },

@@ -6,10 +6,36 @@ import { apiError } from "../../lib/axios";
 import { selectAuth } from "../../features/auth/authSlice";
 import Hero from "../../components/Hero";
 import Rail from "../../components/Rail";
+import TileRail from "../../components/TileRail";
 import { HeroSkeleton, RailSkeleton } from "../../components/Skeleton";
 
-// Turn a Title into a Hero slide so the banner stays full even with few/no
-// admin-made banners (and so the prev/next arrows always have something to cycle).
+// Per-genre look (vivid gradient + icon). Falls back to a purple block.
+const GENRE_STYLE = {
+  action:    { grad: "from-rose-600 to-red-700",       icon: "💥" },
+  adventure: { grad: "from-amber-500 to-orange-600",   icon: "🧭" },
+  "sci-fi":  { grad: "from-cyan-500 to-blue-700",      icon: "🚀" },
+  anime:     { grad: "from-fuchsia-500 to-purple-700", icon: "🍥" },
+  drama:     { grad: "from-indigo-500 to-violet-700",  icon: "🎭" },
+  crime:     { grad: "from-slate-600 to-gray-800",     icon: "🕵️" },
+  mythology: { grad: "from-yellow-500 to-amber-700",   icon: "🏛️" },
+  bollywood: { grad: "from-pink-500 to-rose-700",      icon: "🎬" },
+};
+const genreStyle = (name = "", slug = "") =>
+  GENRE_STYLE[slug] || GENRE_STYLE[name.toLowerCase()] || { grad: "from-primary to-accent", icon: "🎬" };
+
+// Per-language look: gradient + the language name in its native script.
+const LANG_STYLE = {
+  english:   { grad: "from-sky-600 to-blue-800",      native: "English" },
+  hindi:     { grad: "from-orange-500 to-rose-700",   native: "हिंदी" },
+  japanese:  { grad: "from-rose-500 to-red-700",      native: "日本語" },
+  tamil:     { grad: "from-emerald-500 to-teal-700",  native: "தமிழ்" },
+  telugu:    { grad: "from-violet-500 to-purple-700", native: "తెలుగు" },
+  malayalam: { grad: "from-lime-500 to-green-700",    native: "മലയാളം" },
+  kannada:   { grad: "from-amber-500 to-yellow-700",  native: "ಕನ್ನಡ" },
+  bengali:   { grad: "from-fuchsia-500 to-pink-700",  native: "বাংলা" },
+};
+const langStyle = (name = "") => LANG_STYLE[name.toLowerCase()] || { grad: "from-primary to-accent", native: name };
+
 const titleToHero = (t) => ({
   id: t.id,
   imageUrl: t.backdropUrl || t.posterUrl,
@@ -51,6 +77,19 @@ export default function Home() {
   if (error) return <p className="rounded-lg bg-red-500/10 p-4 text-red-400">{error}</p>;
   if (!home) return (<div><HeroSkeleton /><RailSkeleton title /><RailSkeleton title /></div>);
 
+  // Build the JioHotstar-style tile rows from real data.
+  const langTiles = (home.languages || []).map((l) => {
+    const s = langStyle(l.name);
+    const native = l.native || s.native;
+    return { key: l.name, label: native, sublabel: `${l.name} · ${l.count} ${l.count === 1 ? "title" : "titles"}`, watermark: native, image: l.image, grad: l.gradient || s.grad, to: `/search?language=${encodeURIComponent(l.name)}` };
+  });
+  const genreTiles = (home.categories || []).map((c) => {
+    const s = genreStyle(c.name, c.slug);
+    return { key: c.id, label: c.name, watermark: c.name, image: c.image, grad: s.grad, to: `/search?category=${c.slug}` };
+  });
+  // Show the tile rails in the middle of the content rails.
+  const midPoint = Math.ceil((home.rails?.length || 0) / 2);
+
   return (
     <div className="animate-fadeIn">
       <Hero heroes={heroSlides} />
@@ -58,8 +97,25 @@ export default function Home() {
       <div className="space-y-2">
         {continueItems.length > 0 && <Rail name="Continue Watching" items={continueItems} />}
         {home.rails.map((rail, idx) => (
-          <Rail key={rail.id} name={rail.name} items={rail.titles} ranked={idx === 0 && rail.titles?.length > 2} />
+          <div key={rail.id}>
+            <Rail name={rail.name} items={rail.titles} ranked={idx === 0 && rail.titles?.length > 2} />
+            {/* Drop the Languages + Genres tile rails into the MIDDLE of the
+                content rails (after the ceil(n/2)-th rail). */}
+            {idx + 1 === midPoint && (
+              <div className="my-6 space-y-2">
+                {langTiles.length > 0 && <TileRail name="Popular Languages" items={langTiles} variant="block" />}
+                {genreTiles.length > 0 && <TileRail name="Popular Genres" items={genreTiles} variant="block" />}
+              </div>
+            )}
+          </div>
         ))}
+        {/* Fallback: if there are no content rails, still show the tile rails. */}
+        {home.rails.length === 0 && (
+          <div className="mt-6 space-y-2">
+            {langTiles.length > 0 && <TileRail name="Popular Languages" items={langTiles} variant="block" />}
+            {genreTiles.length > 0 && <TileRail name="Popular Genres" items={genreTiles} variant="block" />}
+          </div>
+        )}
       </div>
 
       {home.collections?.length > 0 && (
@@ -77,18 +133,6 @@ export default function Home() {
         </section>
       )}
 
-      {home.categories?.length > 0 && (
-        <section className="mb-8 mt-2">
-          <h2 className="section-title">Browse by Genre</h2>
-          <div className="flex flex-wrap gap-2.5">
-            {home.categories.map((cat) => (
-              <Link key={cat.id} to={`/search?category=${cat.slug}`} className="chip border border-white/10 bg-white/5 text-gray-300 hover:border-primary hover:bg-primary hover:text-white">
-                {cat.name}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

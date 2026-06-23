@@ -75,6 +75,8 @@ export const adminApi = {
   remove: (resource, id) => api.delete(`/admin/${resource}/${id}`),
   // rails
   railAddTitle: (railId, titleId) => data(api.post(`/admin/rails/${railId}/items`, { titleId })),
+  railRemoveTitle: (railId, titleId) => api.delete(`/admin/rails/${railId}/items/${titleId}`),
+  railReorder: (railId, titleIds) => data(api.post(`/admin/rails/${railId}/reorder`, { titleIds })),
   // users
   suspendUser: (id) => data(api.post(`/admin/users/${id}/suspend`)),
   activateUser: (id) => data(api.post(`/admin/users/${id}/activate`)),

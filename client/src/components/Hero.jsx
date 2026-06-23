@@ -62,12 +62,17 @@ export default function Hero({ heroes }) {
             <HlsPlayer src={src} poster={hero.imageUrl} autoPlay loop muted={muted} paused={paused} controls={false} className="h-full w-full bg-black object-cover" />
           </div>
         ) : (
-          <SmartImage key={hero.id} src={hero.imageUrl} alt={hero.title} label={hero.title} className="absolute inset-0 h-full w-full animate-kenburns object-cover object-top" />
+          // Always fill the full width/height of the banner (object-cover).
+          // Top/bottom may be cropped for tall images — upload wide (16:9)
+          // artwork for the least cropping.
+          <SmartImage key={hero.id} src={hero.imageUrl} alt={hero.title} label={hero.title} className="absolute inset-0 h-full w-full animate-kenburns object-cover object-center" />
         )}
 
-        {/* Scrims — light, just enough for text legibility (keeps the image crisp) */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/80 via-transparent to-transparent" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink/55 via-transparent to-transparent" />
+        {/* Cinematic dark shade — solid on the LEFT where the text sits, fading
+            smoothly to a clear image on the right (no blurry "spot"). */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink from-[2%] via-ink/75 via-40% to-transparent to-[72%]" />
+        {/* Top + bottom vignette so the image melts into the page */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/85 via-transparent to-ink/30" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-ink to-transparent" />
 
         {/* Content */}

@@ -8,6 +8,7 @@ const links = [
   ["/admin/rails", "Rails", "🎞️"],
   ["/admin/heroes", "Banners", "🖼️"],
   ["/admin/categories", "Categories", "🏷️"],
+  ["/admin/languages", "Languages", "🌐"],
   ["/admin/media", "Media", "📤"],
   ["/admin/users", "Users", "👥"],
 ];

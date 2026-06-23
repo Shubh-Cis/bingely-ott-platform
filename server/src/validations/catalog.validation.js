@@ -5,8 +5,15 @@ const optionalSlug = z.string().min(1).max(80).regex(/^[a-z0-9-]+$/, "Slug must 
 
 // ---- Category --------------------------------------------------------------
 const category = {
-  create: { body: z.object({ name: z.string().min(1).max(80), slug: optionalSlug, order: z.number().int().optional(), active: z.boolean().optional() }) },
-  update: { params: id, body: z.object({ name: z.string().min(1).max(80).optional(), slug: optionalSlug, order: z.number().int().optional(), active: z.boolean().optional() }) },
+  create: { body: z.object({ name: z.string().min(1).max(80), slug: optionalSlug, image: z.string().max(2048).optional().nullable(), order: z.number().int().optional(), active: z.boolean().optional() }) },
+  update: { params: id, body: z.object({ name: z.string().min(1).max(80).optional(), slug: optionalSlug, image: z.string().max(2048).optional().nullable(), order: z.number().int().optional(), active: z.boolean().optional() }) },
+  byId: { params: id },
+};
+
+// ---- Language --------------------------------------------------------------
+const language = {
+  create: { body: z.object({ name: z.string().min(1).max(60), native: z.string().max(60).optional(), image: z.string().max(2048).optional().nullable(), gradient: z.string().max(120).optional(), order: z.number().int().optional(), active: z.boolean().optional() }) },
+  update: { params: id, body: z.object({ name: z.string().min(1).max(60).optional(), native: z.string().max(60).optional(), image: z.string().max(2048).optional().nullable(), gradient: z.string().max(120).optional(), order: z.number().int().optional(), active: z.boolean().optional() }) },
   byId: { params: id },
 };
 
@@ -112,4 +119,4 @@ const settings = {
   }) },
 };
 
-module.exports = { category, title, rail, season, episode, collection, hero, settings };
+module.exports = { category, language, title, rail, season, episode, collection, hero, settings };

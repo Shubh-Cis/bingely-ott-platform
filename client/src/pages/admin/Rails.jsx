@@ -7,6 +7,8 @@ export default function Rails() {
   const [titles, setTitles] = useState([]);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [editId, setEditId] = useState(null); // rail being renamed
+  const [edit, setEdit] = useState({ name: "", order: 0, active: true });
 
   const load = () => adminApi.list("rails").then((r) => setRails(r.data || r)).catch((e) => setError(apiError(e)));
   useEffect(() => {
@@ -25,13 +27,20 @@ export default function Rails() {
     } catch (err) { setError(apiError(err)); }
   };
 
-  const addTitle = async (railId, titleId) => {
-    if (!titleId) return;
+  const startEdit = (rail) => { setEditId(rail.id); setEdit({ name: rail.name || "", order: rail.order ?? 0, active: !!rail.active }); };
+  const cancelEdit = () => { setEditId(null); };
+  const saveEdit = async (id) => {
     try {
-      await adminApi.railAddTitle(railId, titleId);
+      await adminApi.update("rails", id, { name: edit.name.trim(), order: Number(edit.order) || 0, active: !!edit.active });
+      setEditId(null);
       setError("");
       load();
     } catch (err) { setError(apiError(err)); }
+  };
+
+  const addTitle = async (railId, titleId) => {
+    if (!titleId) return;
+    try { await adminApi.railAddTitle(railId, titleId); setError(""); load(); } catch (err) { setError(apiError(err)); }
   };
 
   const del = async (id) => {
@@ -40,11 +49,7 @@ export default function Rails() {
   };
 
   const removeTitle = async (railId, titleId) => {
-    try {
-      await adminApi.railRemoveTitle(railId, titleId);
-      setError("");
-      load();
-    } catch (err) { setError(apiError(err)); }
+    try { await adminApi.railRemoveTitle(railId, titleId); setError(""); load(); } catch (err) { setError(apiError(err)); }
   };
 
   return (
@@ -58,22 +63,37 @@ export default function Rails() {
 
       <div className="space-y-4">
         {rails.map((rail) => (
-          <div key={rail.id} className="card">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-semibold">{rail.name} <span className="text-xs text-gray-500">({rail.titles?.length || 0})</span></h2>
-              <button onClick={() => del(rail.id)} className="text-sm text-red-400 hover:underline">Delete</button>
-            </div>
+          <div key={rail.id} className={`card ${editId === rail.id ? "ring-1 ring-primary" : ""}`}>
+            {editId === rail.id ? (
+              <div className="mb-3 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-[1fr_7rem]">
+                  <div><label className="label">Rail name</label><input className="input" value={edit.name} onChange={(e) => setEdit((s) => ({ ...s, name: e.target.value }))} /></div>
+                  <div><label className="label">Order</label><input className="input" type="number" value={edit.order} onChange={(e) => setEdit((s) => ({ ...s, order: e.target.value }))} /></div>
+                </div>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.active} onChange={(e) => setEdit((s) => ({ ...s, active: e.target.checked }))} /> Active (visible on home)</label>
+                <div className="flex gap-2">
+                  <button onClick={() => saveEdit(rail.id)} className="btn-primary">Save</button>
+                  <button onClick={cancelEdit} className="text-sm text-gray-400 hover:text-white">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="font-semibold">
+                  {rail.name} <span className="text-xs text-gray-500">({rail.titles?.length || 0})</span>
+                  {!rail.active && <span className="ml-2 text-xs text-gray-500">· hidden</span>}
+                </h2>
+                <div className="flex gap-3">
+                  <button onClick={() => startEdit(rail)} className="text-sm text-primary hover:underline">Edit</button>
+                  <button onClick={() => del(rail.id)} className="text-sm text-red-400 hover:underline">Delete</button>
+                </div>
+              </div>
+            )}
+
             <div className="mb-3 flex flex-wrap gap-2 text-sm text-gray-300">
               {rail.titles?.length ? rail.titles.map((t) => (
                 <span key={t.id} className="inline-flex items-center gap-1.5 rounded bg-edge px-2 py-1">
                   {t.title}
-                  <button
-                    onClick={() => removeTitle(rail.id, t.id)}
-                    title="Remove from rail"
-                    className="grid h-4 w-4 place-items-center rounded-full bg-black/30 text-xs leading-none text-gray-300 hover:bg-primary hover:text-white"
-                  >
-                    ×
-                  </button>
+                  <button onClick={() => removeTitle(rail.id, t.id)} title="Remove from rail" className="grid h-4 w-4 place-items-center rounded-full bg-black/30 text-xs leading-none text-gray-300 hover:bg-primary hover:text-white">×</button>
                 </span>
               )) : <span className="text-gray-500">No titles yet.</span>}
             </div>

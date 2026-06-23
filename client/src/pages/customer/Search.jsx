@@ -28,6 +28,7 @@ export default function Search() {
   const q = params.get("q") || "";
   const type = params.get("type") || "";
   const category = params.get("category") || "";
+  const language = params.get("language") || "";
   const sort = params.get("sort") || "rating";
 
   useEffect(() => {
@@ -50,6 +51,7 @@ export default function Search() {
     if (q) query.q = q;
     if (type) query.type = type;
     if (category) query.category = category;
+    if (language) query.language = language;
     catalogApi
       .search(query)
       .then((res) => {
@@ -57,7 +59,7 @@ export default function Search() {
         setMeta(res.meta);
       })
       .catch((e) => setError(apiError(e)));
-  }, [q, type, category, sort]);
+  }, [q, type, category, language, sort]);
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(params);
