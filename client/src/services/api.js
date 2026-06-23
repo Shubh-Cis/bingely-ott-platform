@@ -26,6 +26,7 @@ export const mediaApi = {
   playUrl: (videoId) => data(api.get(`/media/play/${videoId}`)),
   // admin
   uploadUrl: (body) => data(api.post("/media/upload-url", body)),
+  uploadImage: (formData) => data(api.post("/media/image", formData)), // server-side image upload (poster/backdrop/banner)
   complete: (id) => data(api.post(`/media/${id}/complete`)),
   status: (id) => data(api.get(`/media/${id}/status`)),
   list: (params) => data(api.get("/media", { params })),

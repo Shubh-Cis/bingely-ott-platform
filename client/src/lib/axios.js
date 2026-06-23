@@ -9,7 +9,10 @@ import axios from "axios";
 // http://localhost:4001) instead of the Vite dev origin (:5173). Override via
 // client/.env → VITE_API_BASE_URL. The backend's CORS allow-list already
 // includes the dev origins (see CORS_ORIGINS in the server .env).
-const API_ORIGIN = import.meta.env.VITE_API_BASE_URL || "http://localhost:4001";
+// `??` (not `||`) so an explicit empty string is respected: in production the
+// build sets VITE_API_BASE_URL="" → API_BASE="/api" (relative, same-origin via
+// the nginx proxy). In dev it's "http://localhost:4001".
+const API_ORIGIN = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4001";
 export const API_BASE = `${API_ORIGIN.replace(/\/$/, "")}/api`;
 
 // Tokens are namespaced per "scope" so the admin portal and the customer site

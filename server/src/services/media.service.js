@@ -197,7 +197,9 @@ async function playUrl(videoId) {
   if (media.status !== "READY") throw ApiError.badRequest(`Video is not ready (status: ${media.status})`);
 
   const key = `${videoId}/master.m3u8`;
-  const url = cdnUrl(key) || `${config.publicApiUrl}/api/media/hls/${videoId}/master.m3u8`;
+  // Relative URL → resolved against the page origin: works through the Vite dev
+  // proxy AND the production nginx proxy, with no hard-coded host.
+  const url = cdnUrl(key) || `/api/media/hls/${videoId}/master.m3u8`;
   return { videoId, url, hlsUrl: media.hlsUrl || url };
 }
 

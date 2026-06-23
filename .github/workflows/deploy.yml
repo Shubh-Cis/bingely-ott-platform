@@ -1,0 +1,31 @@
+name: Deploy to EC2
+
+# Runs automatically on every push to main, and can be triggered by hand.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # SSH into the EC2 box and run the deploy commands there.
+      # The repo is already cloned at /opt/bingely on the server, and the
+      # secret .env files already live there (created once, never in git).
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}        # EC2 public IP or DNS
+          username: ${{ secrets.EC2_USER }}    # e.g. "ubuntu"
+          key: ${{ secrets.EC2_SSH_KEY }}      # the PRIVATE key (PEM contents)
+          script: |
+            set -e
+            cd /opt/bingely
+            echo "▶ Pulling latest code…"
+            git pull origin main
+            echo "▶ Building & starting containers…"
+            docker compose up -d --build
+            echo "▶ Cleaning up old images…"
+            docker image prune -f
+            echo "✓ Deploy complete"

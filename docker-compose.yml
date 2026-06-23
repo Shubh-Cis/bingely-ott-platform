@@ -1,63 +1,71 @@
-# Bingely — optional backend stack: Postgres, Redis, API, transcode worker.
+# Bingely — full production stack (run on the EC2 server):  docker compose up -d --build
 #
-#   docker compose up --build
+#   client (nginx) ─80→ serves the React app + proxies /api → api
+#   api (Express)        the backend on :4001 (internal)
+#   worker               FFmpeg transcode worker (same image as api)
+#   postgres             database (data persisted in the "pgdata" volume)
+#   redis                cache/queue store (optional)
 #
-# The API + worker share the backend image (different `command`). The frontend
-# is NOT containerised — run it locally with `cd client && npm run dev` (Vite),
-# or build it (`npm run build`) and host the static `dist/` anywhere.
-# This whole file is optional: local dev uses local Postgres + `npm run dev`.
+# Secrets are read at runtime from server/.env (env_file) — they live on the
+# server and are NEVER in git. Compose-level vars (Postgres creds, the Stripe
+# PUBLISHABLE key) come from a root .env next to this file.
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: bingely
-      POSTGRES_PASSWORD: bingely
-      POSTGRES_DB: bingely
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-bingely}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bingely}
+      POSTGRES_DB: ${POSTGRES_DB:-bingely}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data   # data survives container restarts/redeploys
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bingely"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bingely}"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+    restart: unless-stopped
 
   api:
     build: ./server
-    command: sh -c "npx prisma migrate deploy && node src/server.js"
-    env_file: ./server/.env
+    restart: unless-stopped
+    # On start: sync the DB schema, then run the API.
+    command: sh -c "npx prisma db push --accept-data-loss && node src/server.js"
+    env_file: ./server/.env               # JWT, AWS, Stripe SECRET keys, etc. (server-side only)
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://bingely:bingely@postgres:5432/bingely?schema=public
-    ports:
-      - "4001:4001"
+      # Point the app at the postgres CONTAINER (overrides DATABASE_URL in .env)
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bingely}:${POSTGRES_PASSWORD:-bingely}@postgres:5432/${POSTGRES_DB:-bingely}?schema=public
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
 
   worker:
     build: ./server
+    restart: unless-stopped
     command: node src/workers/transcode.worker.js
     env_file: ./server/.env
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://bingely:bingely@postgres:5432/bingely?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bingely}:${POSTGRES_PASSWORD:-bingely}@postgres:5432/${POSTGRES_DB:-bingely}?schema=public
     depends_on:
       postgres:
         condition: service_healthy
+
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_API_BASE_URL: ""                                  # relative /api → same origin (nginx proxies)
+        VITE_STRIPE_PUBLISHABLE_KEY: ${VITE_STRIPE_PUBLISHABLE_KEY:-}   # publishable (not secret), from root .env
+    restart: unless-stopped
+    ports:
+      - "80:80"            # the public entry point: http://<your-ec2-ip>
+    depends_on:
+      - api
 
 volumes:
   pgdata:
