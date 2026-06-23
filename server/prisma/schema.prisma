@@ -1,0 +1,531 @@
+// Prisma schema for Bingely (StreamHaven / Bingely+)
+// All content (heroes, titles, categories, rails, collections) is managed via the admin portal.
+//
+// This schema is the SOURCE OF TRUTH for the database. The first section is the
+// original StreamHaven schema (unchanged). The second section ("PLATFORM EXTENSIONS")
+// adds the models the full Bingely spec requires: refresh tokens, favourites,
+// devices, notifications, payments and an audit log.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+enum TitleType {
+  MOVIE
+  SERIES
+  DOCUMENTARY
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+}
+
+// Lifecycle of a single playback session, used to power admin analytics.
+//   START    → a viewer pressed play (counts as one "view")
+//   PROGRESS → periodic heartbeat while watching (carries watched seconds)
+//   COMPLETE → viewer reached (near) the end (powers completion rate)
+enum PlaybackEventType {
+  START
+  PROGRESS
+  COMPLETE
+}
+
+// ----------------------------------------------------------------------------
+// Admin & site users
+// ----------------------------------------------------------------------------
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(EDITOR)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+}
+
+// ----------------------------------------------------------------------------
+// Settings (single-row global site configuration)
+// ----------------------------------------------------------------------------
+model SiteSettings {
+  id              Int      @id @default(1)
+  siteName        String   @default("Bingely+")
+  tagline         String   @default("Premium Streaming, Reimagined")
+  logoUrl         String?
+  primaryColor    String   @default("#7c3aed")
+  contactEmail    String   @default("hello@streamhaven.local")
+  footerText      String   @default("© Bingely+ — All rights reserved.")
+  socialTwitter   String?
+  socialInstagram String?
+  socialYoutube   String?
+  updatedAt       DateTime @updatedAt
+}
+
+// ----------------------------------------------------------------------------
+// Hero banners (top carousel on home page)
+// ----------------------------------------------------------------------------
+model Hero {
+  id        String   @id @default(cuid())
+  title     String
+  tagline   String
+  badge     String?
+  imageUrl  String
+  videoUrl  String?
+  meta      String[] @default([])
+  ctaLabel  String   @default("Play")
+  ctaUrl    String?
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order, active])
+}
+
+// ----------------------------------------------------------------------------
+// Category (genre tag) — used both as filter and shown in "Popular Categories"
+// ----------------------------------------------------------------------------
+model Category {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  slug      String          @unique
+  order     Int             @default(0)
+  active    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  titles    TitleCategory[]
+}
+
+// ----------------------------------------------------------------------------
+// Title (movie / series / documentary)
+// ----------------------------------------------------------------------------
+model Title {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  synopsis    String    @default("")
+  year        Int
+  rating      Float     @default(0)
+  duration    String    @default("")
+  type        TitleType @default(MOVIE)
+  posterUrl   String
+  backdropUrl String?
+  videoUrl    String?
+  trailerUrl  String?
+  badge       String?
+  featured    Boolean   @default(false)
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  categories       TitleCategory[]
+  rails            RailItem[]
+  seasons          Season[] // populated only for SERIES titles
+  videoAssets      VideoAsset[] // legacy Mux-era asset tracking (kept, unused by app)
+  playbackProgress PlaybackProgress[] // per-viewer resume points (legacy Viewer model)
+  events           PlaybackEvent[] // anonymous analytics events
+  favourites       Favourite[]
+
+  @@index([type, active])
+  @@index([featured])
+}
+
+// ----------------------------------------------------------------------------
+// Season → Episode hierarchy (a SERIES Title has Seasons; a Season has Episodes).
+// ----------------------------------------------------------------------------
+model Season {
+  id        String    @id @default(cuid())
+  titleId   String
+  number    Int // season number, e.g. 1
+  name      String    @default("") // optional label, e.g. "Book One"
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  title     Title     @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  episodes  Episode[]
+
+  @@unique([titleId, number])
+  @@index([titleId, order])
+}
+
+model Episode {
+  id            String   @id @default(cuid())
+  seasonId      String
+  number        Int // episode number within the season
+  title         String // episode title, e.g. "Pilot"
+  synopsis      String   @default("")
+  thumbnailUrl  String?
+  durationSec   Int? // legacy numeric duration (seconds)
+  videoUrl      String? // ← ADDED: HLS master / MP4, same pipeline as Title
+  trailerUrl    String? // ← ADDED
+  order         Int      @default(0)
+  active        Boolean  @default(true)
+  introStartSec Int?
+  introEndSec   Int?
+  recapStartSec Int?
+  recapEndSec   Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  season           Season             @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  videoAsset       VideoAsset?
+  playbackProgress PlaybackProgress[]
+  events           PlaybackEvent[]
+
+  @@unique([seasonId, number])
+  @@index([seasonId, order])
+}
+
+// ----------------------------------------------------------------------------
+// PlaybackEvent — Append-only ANONYMOUS analytics events from the player.
+// ----------------------------------------------------------------------------
+model PlaybackEvent {
+  id        String            @id @default(cuid())
+  titleId   String?
+  title     Title?            @relation(fields: [titleId], references: [id], onDelete: SetNull)
+  episodeId String?
+  episode   Episode?          @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+  type      PlaybackEventType
+  kind      String? // "movie" | "trailer" | "episode"
+  sessionId String // anonymous client/session id
+  seconds   Int               @default(0) // watched seconds in this beat (PROGRESS)
+  position  Int               @default(0) // current playhead position in seconds
+  createdAt DateTime          @default(now())
+
+  @@index([createdAt])
+  @@index([titleId, createdAt])
+  @@index([type, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Customer/monetization model.
+// ----------------------------------------------------------------------------
+model Viewer {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String   @default("")
+  emailVerified Boolean @default(false)
+  active        Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  playbackProgress PlaybackProgress[]
+  subscription     Subscription?
+  favourites       Favourite[]
+  devices          Device[]
+  payments         Payment[]
+  notifications    Notification[]
+  refreshTokens    RefreshToken[]
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  viewerId             String             @unique
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  plan                 SubscriptionPlan?
+  status               SubscriptionStatus @default(NONE)
+  maxStreams           Int                @default(1)
+  maxHeight            Int                @default(1080)
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  updatedAt            DateTime           @updatedAt
+  viewer               Viewer             @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  payments             Payment[]
+
+  @@index([status])
+}
+
+model PlaybackProgress {
+  id          String       @id @default(cuid())
+  viewerId    String
+  titleId     String
+  episodeId   String?
+  episodeKey  String       @default("")
+  kind        PlaybackKind @default(MOVIE)
+  positionSec Float        @default(0)
+  durationSec Float        @default(0)
+  completed   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  episode     Episode?     @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  title       Title        @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  viewer      Viewer       @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@unique([viewerId, titleId, episodeKey])
+  @@index([viewerId, completed, updatedAt])
+}
+
+model VideoAsset {
+  id              String            @id @default(cuid())
+  provider        VideoProviderKind @default(MUX)
+  role            AssetRole         @default(MOVIE)
+  status          AssetStatus       @default(QUEUED)
+  error           String?
+  titleId         String?
+  episodeId       String?           @unique
+  uploadRef       String?
+  providerAssetId String?
+  playbackId      String?
+  durationSec     Int?
+  aspectRatio     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  episode         Episode?          @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  title           Title?            @relation(fields: [titleId], references: [id], onDelete: Cascade)
+
+  @@index([providerAssetId])
+  @@index([status])
+  @@index([titleId, role])
+}
+
+enum AssetRole {
+  MOVIE
+  TRAILER
+  EPISODE
+}
+
+enum AssetStatus {
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum PlaybackKind {
+  MOVIE
+  TRAILER
+  EPISODE
+}
+
+enum SubscriptionPlan {
+  BASIC
+  STANDARD
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  NONE
+}
+
+enum VideoProviderKind {
+  MUX
+  LOCAL
+}
+
+// Many-to-many Title <-> Category
+model TitleCategory {
+  titleId    String
+  categoryId String
+  title      Title    @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([titleId, categoryId])
+  @@index([categoryId])
+}
+
+// ----------------------------------------------------------------------------
+// Rail (horizontal row on the home page)
+// ----------------------------------------------------------------------------
+model Rail {
+  id           String     @id @default(cuid())
+  name         String
+  slug         String     @unique
+  showProgress Boolean    @default(false)
+  order        Int        @default(0)
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  items        RailItem[]
+
+  @@index([order, active])
+}
+
+model RailItem {
+  id      String @id @default(cuid())
+  railId  String
+  titleId String
+  order   Int    @default(0)
+  rail    Rail   @relation(fields: [railId], references: [id], onDelete: Cascade)
+  title   Title  @relation(fields: [titleId], references: [id], onDelete: Cascade)
+
+  @@unique([railId, titleId])
+  @@index([railId, order])
+}
+
+// ----------------------------------------------------------------------------
+// Featured Collections
+// ----------------------------------------------------------------------------
+model Collection {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  description String   @default("")
+  imageUrl    String?
+  gradient    String   @default("from-primary to-secondary")
+  count       Int      @default(0)
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([order, active])
+}
+
+// ----------------------------------------------------------------------------
+// Media library — uploaded image / video assets
+// ----------------------------------------------------------------------------
+model Media {
+  id          String    @id @default(cuid())
+  filename    String
+  url         String // for videos: updated to HLS master.m3u8 URL after transcoding completes
+  hlsUrl      String? // explicit HLS master playlist URL (null for images, null until transcoding done)
+  transcoding Boolean   @default(false) // true while FFmpeg worker is processing, false when done or failed
+  status      AssetStatus @default(READY) // QUEUED/PROCESSING/READY/FAILED for video uploads
+  videoId     String?   @unique // the pipeline videoId (S3 key prefix) for video uploads
+  error       String?
+  kind        MediaKind
+  mimeType    String
+  size        Int
+  alt         String?
+  createdAt   DateTime  @default(now())
+
+  @@index([kind, createdAt])
+  @@index([status])
+}
+
+// ============================================================================
+// PLATFORM EXTENSIONS — added to satisfy the full Bingely spec.
+// ============================================================================
+
+enum PaymentStatus {
+  SUCCEEDED
+  PENDING
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  SYSTEM
+  BILLING
+  CONTENT
+}
+
+// Refresh tokens for both admin Users and customer Viewers (rotation + revoke).
+// Exactly one of userId / viewerId is set per row.
+model RefreshToken {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique // sha256 of the issued refresh token — never store raw
+  userId     String?
+  viewerId   String?
+  userAgent  String?
+  ip         String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  viewer Viewer? @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([viewerId])
+  @@index([expiresAt])
+}
+
+// Favourite / "My List" — Viewer <-> Title.
+model Favourite {
+  id        String   @id @default(cuid())
+  viewerId  String
+  titleId   String
+  createdAt DateTime @default(now())
+
+  viewer Viewer @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  title  Title  @relation(fields: [titleId], references: [id], onDelete: Cascade)
+
+  @@unique([viewerId, titleId])
+  @@index([viewerId])
+}
+
+// Registered playback devices (for "Device Management" + stream limits).
+model Device {
+  id         String   @id @default(cuid())
+  viewerId   String
+  name       String   @default("")
+  type       String   @default("web") // web | mobile | tv
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  viewer Viewer @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@index([viewerId])
+}
+
+// In-app notifications.
+model Notification {
+  id        String           @id @default(cuid())
+  viewerId  String
+  type      NotificationType @default(SYSTEM)
+  title     String
+  body      String           @default("")
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  viewer Viewer @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@index([viewerId, readAt])
+}
+
+// Payment history (powers admin "Revenue Reports" + viewer "Payment History").
+model Payment {
+  id              String        @id @default(cuid())
+  viewerId        String
+  subscriptionId  String?
+  stripeInvoiceId String?       @unique
+  amountCents     Int           @default(0)
+  currency        String        @default("usd")
+  status          PaymentStatus @default(PENDING)
+  description     String        @default("")
+  createdAt       DateTime      @default(now())
+
+  viewer       Viewer        @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([viewerId, createdAt])
+  @@index([status, createdAt])
+}
+
+// Admin action audit log (powers "User Activity Logs" / "Recent Activity").
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String // e.g. "title.create", "user.suspend"
+  entity    String   @default("") // e.g. "Title"
+  entityId  String   @default("")
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}

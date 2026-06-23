@@ -1,0 +1,63 @@
+# Bingely — optional backend stack: Postgres, Redis, API, transcode worker.
+#
+#   docker compose up --build
+#
+# The API + worker share the backend image (different `command`). The frontend
+# is NOT containerised — run it locally with `cd client && npm run dev` (Vite),
+# or build it (`npm run build`) and host the static `dist/` anywhere.
+# This whole file is optional: local dev uses local Postgres + `npm run dev`.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bingely
+      POSTGRES_PASSWORD: bingely
+      POSTGRES_DB: bingely
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bingely"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./server
+    command: sh -c "npx prisma migrate deploy && node src/server.js"
+    env_file: ./server/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://bingely:bingely@postgres:5432/bingely?schema=public
+    ports:
+      - "4001:4001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: ./server
+    command: node src/workers/transcode.worker.js
+    env_file: ./server/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://bingely:bingely@postgres:5432/bingely?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
