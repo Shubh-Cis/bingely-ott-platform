@@ -67,7 +67,7 @@ export default function AdminLayout() {
             className="btn-ghost mt-2 w-full py-2 text-sm"
             onClick={() => dispatch(logout()).then(() => navigate("/admin/login"))}
           >
-            Sign out
+            Sign Out
           </button>
         </div>
       </aside>
