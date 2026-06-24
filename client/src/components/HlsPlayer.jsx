@@ -72,10 +72,22 @@ export default function HlsPlayer({
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !onProgress) return;
-    const id = setInterval(() => {
-      if (!video.paused && video.duration) onProgress(Math.floor(video.currentTime), Math.floor(video.duration));
-    }, 10000);
-    return () => clearInterval(id);
+    const save = () => {
+      if (video.duration && video.currentTime > 0) onProgress(Math.floor(video.currentTime), Math.floor(video.duration));
+    };
+    // Save every 5s while playing, plus whenever the viewer pauses or leaves —
+    // so the resume point is captured even on short or interrupted sessions.
+    const id = setInterval(() => { if (!video.paused) save(); }, 5000);
+    video.addEventListener("pause", save);
+    window.addEventListener("pagehide", save);
+    document.addEventListener("visibilitychange", save);
+    return () => {
+      clearInterval(id);
+      video.removeEventListener("pause", save);
+      window.removeEventListener("pagehide", save);
+      document.removeEventListener("visibilitychange", save);
+      save(); // capture the final position when the player unmounts
+    };
   }, [onProgress]);
 
   const pick = (index) => {

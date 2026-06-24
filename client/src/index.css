@@ -35,12 +35,29 @@ h1, h2, h3, .font-display { font-family: Inter, sans-serif; font-weight: 800; le
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 @layer components {
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-semibold transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed; }
-  .btn-primary { @apply btn text-white shadow-lg shadow-primary/30; background-image: linear-gradient(135deg, #8b5cf6, #a855f7); }
-  .btn-primary:hover { filter: brightness(1.08); }
-  .btn-light { @apply btn bg-white text-black hover:bg-white/90; }
-  .btn-ghost { @apply btn border border-white/15 bg-white/10 text-white backdrop-blur hover:bg-white/20; }
-  .input { @apply w-full rounded-xl bg-elevated/70 border border-edge px-3.5 py-2.5 text-gray-100 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25 placeholder:text-gray-500; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-semibold transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-ink; }
+
+  /* An interactive card that lifts + brightens its border on hover. */
+  .card-interactive { @apply rounded-2xl border border-white/10 bg-surface/80 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/25 hover:shadow-xl hover:shadow-black/40; }
+
+  /* Primary = the brand gradient. Soft glow + a hover lift for a premium feel. */
+  .btn-primary {
+    @apply btn text-white shadow-lg shadow-primary/40 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/50;
+    background-image: linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #d946ef 100%);
+  }
+  .btn-primary:hover { filter: brightness(1.06) saturate(1.05); }
+
+  /* Light = a glossy white play button (Netflix/Hotstar primary action). */
+  .btn-light { @apply btn bg-white text-black shadow-lg shadow-black/20 hover:-translate-y-0.5 hover:bg-white; }
+  .btn-light:hover { filter: brightness(0.97); }
+
+  /* Ghost = glassy outline; brightens to the brand tint on hover. */
+  .btn-ghost { @apply btn border border-white/20 bg-white/10 text-white backdrop-blur hover:-translate-y-0.5 hover:border-primary/60 hover:bg-white/15; }
+
+  /* A circular icon button (mute, arrows, watchlist, etc.). */
+  .icon-btn { @apply grid place-items-center rounded-full border border-white/20 bg-black/40 text-white backdrop-blur-md transition-all duration-200 hover:scale-110 hover:border-white hover:bg-black/70; }
+
+  .input { @apply w-full rounded-xl border border-edge bg-elevated/70 px-3.5 py-2.5 text-gray-100 outline-none transition focus:border-primary focus:bg-elevated focus:ring-2 focus:ring-primary/30 placeholder:text-gray-500; }
   .card { @apply rounded-2xl border border-white/10 bg-surface/80 p-5 backdrop-blur-xl; }
   .glass { @apply border border-white/10 bg-white/5 backdrop-blur-xl; }
   .label { @apply mb-1.5 block text-sm font-medium text-gray-400; }

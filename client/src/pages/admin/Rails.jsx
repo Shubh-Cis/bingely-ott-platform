@@ -48,6 +48,20 @@ export default function Rails() {
     try { await adminApi.remove("rails", id); load(); } catch (err) { setError(apiError(err)); }
   };
 
+  // Move a rail up/down and persist a clean 0..N order for the whole list.
+  const move = async (idx, dir) => {
+    const j = idx + dir;
+    if (j < 0 || j >= rails.length) return;
+    const next = [...rails];
+    [next[idx], next[j]] = [next[j], next[idx]];
+    setRails(next); // optimistic reorder
+    try {
+      await Promise.all(next.map((r, i) => adminApi.update("rails", r.id, { order: i })));
+      setError("");
+      load();
+    } catch (err) { setError(apiError(err)); load(); }
+  };
+
   const removeTitle = async (railId, titleId) => {
     try { await adminApi.railRemoveTitle(railId, titleId); setError(""); load(); } catch (err) { setError(apiError(err)); }
   };
@@ -61,8 +75,9 @@ export default function Rails() {
         <button className="btn-primary">Create</button>
       </form>
 
+      <p className="mb-2 text-sm text-gray-500">Use ↑ / ↓ to arrange the order rails appear on the home page (top → bottom).</p>
       <div className="space-y-4">
-        {rails.map((rail) => (
+        {rails.map((rail, idx) => (
           <div key={rail.id} className={`card ${editId === rail.id ? "ring-1 ring-primary" : ""}`}>
             {editId === rail.id ? (
               <div className="mb-3 space-y-3">
@@ -82,8 +97,10 @@ export default function Rails() {
                   {rail.name} <span className="text-xs text-gray-500">({rail.titles?.length || 0})</span>
                   {!rail.active && <span className="ml-2 text-xs text-gray-500">· hidden</span>}
                 </h2>
-                <div className="flex gap-3">
-                  <button onClick={() => startEdit(rail)} className="text-sm text-primary hover:underline">Edit</button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => move(idx, -1)} disabled={idx === 0} title="Move up" className="grid h-7 w-7 place-items-center rounded-lg border border-white/15 text-gray-300 transition hover:border-primary hover:text-white disabled:opacity-30">↑</button>
+                  <button onClick={() => move(idx, 1)} disabled={idx === rails.length - 1} title="Move down" className="grid h-7 w-7 place-items-center rounded-lg border border-white/15 text-gray-300 transition hover:border-primary hover:text-white disabled:opacity-30">↓</button>
+                  <button onClick={() => startEdit(rail)} className="ml-1 text-sm text-primary hover:underline">Edit</button>
                   <button onClick={() => del(rail.id)} className="text-sm text-red-400 hover:underline">Delete</button>
                 </div>
               </div>

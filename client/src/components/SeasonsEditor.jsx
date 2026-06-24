@@ -57,23 +57,35 @@ export default function SeasonsEditor({ titleId }) {
   );
 }
 
+const emptyEp = { number: "", title: "", synopsis: "", videoUrl: "", trailerUrl: "" };
+
 function SeasonCard({ season, onChanged, onDelete }) {
-  const [ep, setEp] = useState({ number: "", title: "", synopsis: "", videoUrl: "", trailerUrl: "" });
+  const [ep, setEp] = useState(emptyEp);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState(null); // episode being edited
 
-  const addEpisode = async (e) => {
+  const startAdd = () => { setEp(emptyEp); setEditId(null); setAdding(true); };
+  const startEdit = (e) => {
+    setEditId(e.id);
+    setEp({ number: e.number ?? "", title: e.title || "", synopsis: e.synopsis || "", videoUrl: e.videoUrl || "", trailerUrl: e.trailerUrl || "" });
+    setAdding(true);
+  };
+  const cancel = () => { setAdding(false); setEditId(null); setEp(emptyEp); };
+
+  const saveEpisode = async (e) => {
     e.preventDefault();
+    const body = {
+      number: Number(ep.number),
+      title: ep.title,
+      synopsis: ep.synopsis || "",
+      videoUrl: ep.videoUrl || null,
+      trailerUrl: ep.trailerUrl || null,
+    };
     try {
-      await adminApi.createEpisode(season.id, {
-        number: Number(ep.number),
-        title: ep.title,
-        synopsis: ep.synopsis || "",
-        videoUrl: ep.videoUrl || null,
-        trailerUrl: ep.trailerUrl || null,
-      });
-      setEp({ number: "", title: "", synopsis: "", videoUrl: "", trailerUrl: "" });
-      setAdding(false);
+      if (editId) await adminApi.updateEpisode(editId, body);
+      else await adminApi.createEpisode(season.id, body);
+      cancel();
       setError("");
       onChanged();
     } catch (err) { setError(apiError(err)); }
@@ -93,9 +105,12 @@ function SeasonCard({ season, onChanged, onDelete }) {
 
       <div className="mb-3 space-y-2">
         {season.episodes?.map((e) => (
-          <div key={e.id} className="flex items-center justify-between rounded-lg bg-elevated px-3 py-2 text-sm">
+          <div key={e.id} className={`flex items-center justify-between rounded-lg bg-elevated px-3 py-2 text-sm ${editId === e.id ? "ring-1 ring-primary" : ""}`}>
             <span><span className="text-gray-400">E{e.number}</span> · {e.title} {e.videoUrl ? <span className="text-green-400">▶</span> : <span className="text-gray-600">(no video)</span>}</span>
-            <button onClick={() => delEpisode(e.id)} className="text-red-400 hover:underline">Delete</button>
+            <div className="flex gap-3">
+              <button onClick={() => startEdit(e)} className="text-primary hover:underline">Edit</button>
+              <button onClick={() => delEpisode(e.id)} className="text-red-400 hover:underline">Delete</button>
+            </div>
           </div>
         ))}
       </div>
@@ -103,7 +118,8 @@ function SeasonCard({ season, onChanged, onDelete }) {
       {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
 
       {adding ? (
-        <form onSubmit={addEpisode} className="space-y-3 rounded-lg border border-edge p-3">
+        <form onSubmit={saveEpisode} className="space-y-3 rounded-lg border border-edge p-3">
+          <p className="text-sm font-semibold text-gray-300">{editId ? "Edit episode" : "New episode"}</p>
           <div className="flex gap-2">
             <div><label className="label">Ep #</label><input className="input w-20" type="number" value={ep.number} onChange={(e) => setEp((x) => ({ ...x, number: e.target.value }))} required /></div>
             <div className="flex-1"><label className="label">Title</label><input className="input" value={ep.title} onChange={(e) => setEp((x) => ({ ...x, title: e.target.value }))} required /></div>
@@ -112,12 +128,12 @@ function SeasonCard({ season, onChanged, onDelete }) {
           <VideoUpload label="Episode video" value={ep.videoUrl} onChange={(v) => setEp((x) => ({ ...x, videoUrl: v }))} />
           <VideoUpload label="Episode trailer (optional)" value={ep.trailerUrl} onChange={(v) => setEp((x) => ({ ...x, trailerUrl: v }))} />
           <div className="flex gap-2">
-            <button className="btn-primary">Save episode</button>
-            <button type="button" className="btn-ghost" onClick={() => setAdding(false)}>Cancel</button>
+            <button className="btn-primary">{editId ? "Save changes" : "Save episode"}</button>
+            <button type="button" className="btn-ghost" onClick={cancel}>Cancel</button>
           </div>
         </form>
       ) : (
-        <button className="btn-ghost py-1.5 text-sm" onClick={() => setAdding(true)}>+ Add episode</button>
+        <button className="btn-ghost py-1.5 text-sm" onClick={startAdd}>+ Add episode</button>
       )}
     </div>
   );

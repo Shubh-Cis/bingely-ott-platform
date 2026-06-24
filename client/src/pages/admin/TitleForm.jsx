@@ -39,7 +39,7 @@ export default function TitleForm() {
     adminApi.list("categories").then((res) => setCategories(res.data || res)).catch(() => {});
     if (!isNew) {
       adminApi.get("titles", id).then((t) => {
-        reset({ title: t.title, synopsis: t.synopsis, year: t.year, rating: t.rating, duration: t.duration, type: t.type, posterUrl: t.posterUrl, backdropUrl: t.backdropUrl, videoUrl: t.videoUrl || "", trailerUrl: t.trailerUrl || "", badge: t.badge, featured: t.featured, active: t.active });
+        reset({ title: t.title, synopsis: t.synopsis, year: t.year, rating: t.rating, duration: t.duration, type: t.type, language: t.language || "", country: t.country || "", posterUrl: t.posterUrl, backdropUrl: t.backdropUrl, videoUrl: t.videoUrl || "", trailerUrl: t.trailerUrl || "", badge: t.badge, featured: t.featured, active: t.active });
         setSelectedCats(t.categories.map((c) => c.id));
       }).catch((e) => setError(apiError(e)));
     }
@@ -57,6 +57,9 @@ export default function TitleForm() {
       videoUrl: v.type === "SERIES" ? null : v.videoUrl || null, // series videos live on episodes
       trailerUrl: v.trailerUrl || null,
       badge: v.badge || null,
+      // leave blank → don't send (keeps the DB default/existing value)
+      language: v.language?.trim() || undefined,
+      country: v.country?.trim() || undefined,
     };
     try {
       if (isNew) {
@@ -100,6 +103,8 @@ export default function TitleForm() {
           {field("rating", "Rating (0–10)")}
           {field("duration", "Duration (e.g. 1h 52m)")}
           {field("badge", "Badge (optional)")}
+          {field("language", "Language (e.g. Hindi — drives the language rail)")}
+          {field("country", "Country of origin (e.g. India)")}
         </div>
         <div>
           <label className="label">Synopsis</label>

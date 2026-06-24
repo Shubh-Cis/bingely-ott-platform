@@ -1,5 +1,6 @@
 import TitleCard from "./TitleCard";
 import useRailScroll from "../hooks/useRailScroll";
+import { ChevronLeftIcon, ChevronRightIcon } from "./Icon";
 
 // Horizontal, scrollable row of title cards (Netflix-style).
 // `items` may be titles or { title, progress } pairs. `ranked` shows 1..N numerals.
@@ -15,10 +16,10 @@ export default function Rail({ name, items, ranked = false }) {
         type="button"
         onClick={() => scroll(dir)}
         aria-label={dir < 0 ? "Scroll left" : "Scroll right"}
-        className={`absolute top-5 z-50 hidden h-[149px] w-14 items-center sm:flex sm:h-[171px] ${dir < 0 ? "left-0 justify-start" : "right-0 justify-end"}`}
+        className={`absolute top-5 z-[60] hidden h-[149px] w-14 items-center sm:flex sm:h-[171px] ${dir < 0 ? "left-0 justify-start" : "right-0 justify-end"}`}
       >
-        <span className="grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-black/70 text-2xl text-white opacity-0 shadow-lg shadow-black/50 backdrop-blur-md transition-all duration-200 hover:scale-110 hover:border-white hover:bg-black group-hover/rail:opacity-100">
-          {dir < 0 ? "‹" : "›"}
+        <span className="grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-black/70 text-white opacity-0 shadow-lg shadow-black/50 backdrop-blur-md transition-all duration-200 hover:scale-110 hover:border-white hover:bg-black group-hover/rail:opacity-100">
+          {dir < 0 ? <ChevronLeftIcon className="h-6 w-6" /> : <ChevronRightIcon className="h-6 w-6" />}
         </span>
       </button>
     );

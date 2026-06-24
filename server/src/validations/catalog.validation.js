@@ -27,6 +27,8 @@ const titleBase = {
   rating: z.number().min(0).max(10).optional(),
   duration: z.string().max(40).optional(),
   type: titleType.optional(),
+  language: z.string().max(60).optional(),
+  country: z.string().max(60).optional(),
   // Accept any URL or path (absolute http(s), CloudFront, S3, or a relative
   // /uploads/... path). Strict URL validation was too restrictive for the admin
   // form. posterUrl is optional here and defaults to "" in the service.

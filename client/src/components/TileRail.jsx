@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import useRailScroll from "../hooks/useRailScroll";
 import SmartImage from "./SmartImage";
+import { ChevronLeftIcon, ChevronRightIcon } from "./Icon";
 
 // JioHotstar-style horizontal tile rail. `variant`:
 //   "block"  → wide gradient cards with a big faded watermark (Languages/Genres)
@@ -17,10 +18,10 @@ export default function TileRail({ name, items, variant = "block" }) {
         type="button"
         onClick={() => scroll(dir)}
         aria-label={dir < 0 ? "Scroll left" : "Scroll right"}
-        className={`absolute inset-y-0 z-50 hidden w-16 items-center sm:flex ${dir < 0 ? "left-0 justify-start bg-gradient-to-r from-ink/80 to-transparent" : "right-0 justify-end bg-gradient-to-l from-ink/80 to-transparent"}`}
+        className={`absolute inset-y-0 z-[60] hidden w-16 items-center sm:flex ${dir < 0 ? "left-0 justify-start bg-gradient-to-r from-ink/80 to-transparent" : "right-0 justify-end bg-gradient-to-l from-ink/80 to-transparent"}`}
       >
-        <span className="grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-black/75 text-2xl text-white opacity-0 shadow-lg shadow-black/50 backdrop-blur-md transition-all duration-200 hover:scale-110 hover:border-white hover:bg-black group-hover/tilerow:opacity-100">
-          {dir < 0 ? "‹" : "›"}
+        <span className="grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-black/75 text-white opacity-0 shadow-lg shadow-black/50 backdrop-blur-md transition-all duration-200 hover:scale-110 hover:border-white hover:bg-black group-hover/tilerow:opacity-100">
+          {dir < 0 ? <ChevronLeftIcon className="h-6 w-6" /> : <ChevronRightIcon className="h-6 w-6" />}
         </span>
       </button>
     );
@@ -37,15 +38,15 @@ export default function TileRail({ name, items, variant = "block" }) {
     ) : (
       <Link
         to={it.to}
-        className={`group/tile relative flex h-32 w-56 shrink-0 flex-col justify-end overflow-hidden rounded-xl bg-gradient-to-br ${it.grad} p-4 ring-1 ring-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/50 hover:ring-2 hover:ring-white/40 sm:h-36 sm:w-64`}
+        className={`group/tile relative flex h-44 w-72 shrink-0 flex-col justify-end overflow-hidden rounded-2xl bg-gradient-to-br ${it.grad} p-5 ring-1 ring-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/50 hover:ring-2 hover:ring-white/40 sm:h-52 sm:w-80`}
       >
         {it.image ? (
           <>
             {/* content artwork as the backdrop (JioHotstar-style) */}
             <SmartImage src={it.image} alt={it.label} label={it.label} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover/tile:scale-105" />
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/15" />
-            {/* subtle grey veil — softens the image a touch; lifts on hover */}
-            <div className="pointer-events-none absolute inset-0 bg-ink/30 transition-colors duration-300 group-hover/tile:bg-ink/10" />
+            {/* grey veil — softens the image; lifts a bit on hover */}
+            <div className="pointer-events-none absolute inset-0 bg-ink/50 transition-colors duration-300 group-hover/tile:bg-ink/25" />
           </>
         ) : (
           // no artwork → keep the gradient + big faded watermark of the name

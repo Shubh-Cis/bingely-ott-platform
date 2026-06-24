@@ -138,6 +138,7 @@ model Title {
   duration    String    @default("")
   type        TitleType @default(MOVIE)
   language    String    @default("English")
+  country     String    @default("") // country of origin, e.g. "India", "USA"
   posterUrl   String
   backdropUrl String?
   videoUrl    String?

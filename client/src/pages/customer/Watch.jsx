@@ -5,6 +5,30 @@ import { catalogApi, accountApi, analyticsApi, subscriptionApi, mediaApi } from 
 import { apiError } from "../../lib/axios";
 import { selectAuth } from "../../features/auth/authSlice";
 import HlsPlayer from "../../components/HlsPlayer";
+import SmartImage from "../../components/SmartImage";
+import { PlayIcon } from "../../components/Icon";
+
+// Premium "locked" card used by the sign-in / subscribe gates — shows the
+// title's artwork behind a frosted overlay with a badge + actions.
+function GateCard({ title, slug, badge, heading, text, primary }) {
+  return (
+    <div className="mx-auto max-w-lg py-16">
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 shadow-2xl shadow-black/60">
+        <SmartImage src={title.backdropUrl || title.posterUrl} alt="" label={title.title} className="absolute inset-0 h-full w-full scale-110 object-cover opacity-30 blur-sm" />
+        <div className="absolute inset-0 bg-gradient-to-b from-ink/70 via-ink/85 to-ink" />
+        <div className="relative px-8 py-12 text-center">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-primary to-accent text-3xl shadow-lg shadow-primary/40">{badge}</div>
+          <h2 className="mt-5 text-2xl font-black tracking-tight">{heading}</h2>
+          <p className="mx-auto mt-2 max-w-sm text-gray-300/90">{text}</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            {primary}
+            {title.trailerUrl && <Link to={`/watch/${slug}?kind=trailer`} className="btn-ghost"><PlayIcon className="h-4 w-4" /> Watch trailer</Link>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function sessionId() {
   let s = localStorage.getItem("bingely.sid");
@@ -83,7 +107,7 @@ export default function Watch() {
         let resume = null;
         if (authKind === "viewer" && !isTrailer) {
           const p = await accountApi.getProgress({ titleId: title.id, episodeId: epId || undefined }).catch(() => null);
-          if (p && p.positionSec > 30 && !p.completed) resume = Math.floor(p.positionSec);
+          if (p && p.positionSec > 10 && !p.completed) resume = Math.floor(p.positionSec);
         }
         if (!cancelled) { setSrc(url); setResumeAsk(resume); setStartAt(0); setLoading(false); }
       } catch (e) {
@@ -119,32 +143,22 @@ export default function Watch() {
   // Gated states
   if (gate === "login") {
     return (
-      <div className="mx-auto max-w-md py-16 text-center">
-        {back}
-        <div className="card mt-4">
-          <h2 className="text-xl font-bold">Sign in to watch</h2>
-          <p className="mt-2 text-gray-400">Create a free account or sign in. You can watch trailers without an account.</p>
-          <div className="mt-5 flex justify-center gap-3">
-            <Link to="/login" state={{ from: { pathname: `/watch/${slug}` } }} className="btn-primary">Sign in</Link>
-            {title.trailerUrl && <Link to={`/watch/${slug}?kind=trailer`} className="btn-ghost">▶ Watch trailer</Link>}
-          </div>
-        </div>
-      </div>
+      <GateCard
+        title={title} slug={slug} badge="👤"
+        heading="Sign in to watch"
+        text="Create a free account or sign in to start streaming. Trailers are free to watch without an account."
+        primary={<Link to="/login" state={{ from: { pathname: `/watch/${slug}` } }} className="btn-primary">Sign in</Link>}
+      />
     );
   }
   if (gate === "subscribe") {
     return (
-      <div className="mx-auto max-w-md py-16 text-center">
-        {back}
-        <div className="card mt-4">
-          <h2 className="text-xl font-bold">Subscribe to watch</h2>
-          <p className="mt-2 text-gray-400">This title is available to subscribers. Pick a plan to start streaming — trailers stay free.</p>
-          <div className="mt-5 flex justify-center gap-3">
-            <Link to="/plans" className="btn-primary">See plans</Link>
-            {title.trailerUrl && <Link to={`/watch/${slug}?kind=trailer`} className="btn-ghost">▶ Watch trailer</Link>}
-          </div>
-        </div>
-      </div>
+      <GateCard
+        title={title} slug={slug} badge="✦"
+        heading="Subscribe to watch"
+        text="This title is available to subscribers. Pick a plan to start streaming in HD & 4K — trailers stay free."
+        primary={<Link to="/plans" className="btn-primary">See plans</Link>}
+      />
     );
   }
 

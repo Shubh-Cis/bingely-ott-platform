@@ -1,15 +1,41 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import SmartImage from "./SmartImage";
+import { accountApi } from "../services/api";
+import { PlayIcon, PlusIcon, CheckIcon, InfoIcon } from "./Icon";
 
 // Prime-style rail card: smaller thumbnail by default. On hover the WHOLE card
 // pops up (scales) and a solid detail panel is attached below the enlarged
 // image — so it reads as one bigger floating card, not just a panel appearing.
+const fmtTime = (s = 0) => {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60).toString().padStart(2, "0");
+  return `${m}:${sec}`;
+};
+
 export default function TitleCard({ title, progress, rank, full = false }) {
+  const navigate = useNavigate();
+  const [inList, setInList] = useState(false);
   const pct = progress?.durationSec > 0 ? Math.min(100, (progress.positionSec / progress.durationSec) * 100) : 0;
   const image = title.backdropUrl || title.posterUrl;
 
+  // Watchlist toggle — stop the card's Link from firing, then add/remove.
+  const toggleList = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const next = !inList;
+    setInList(next);
+    const call = next ? accountApi.addFavourite(title.id) : accountApi.removeFavourite(title.id);
+    call.catch(() => { setInList(!next); navigate("/login"); }); // not logged in → sign in
+  };
+  const goInfo = (e) => { e.preventDefault(); e.stopPropagation(); navigate(`/title/${title.slug}`); };
+  // Continue-watching cards (have progress) jump straight into the player, which
+  // then asks "Resume / Start over". Everything else opens the title page.
+  const to = progress
+    ? `/watch/${title.slug}${progress.episodeId ? `?ep=${progress.episodeId}` : ""}`
+    : `/title/${title.slug}`;
+
   return (
-    <Link to={`/title/${title.slug}`} className={`group relative block ${full ? "w-full" : "w-56 shrink-0 sm:w-64"}`}>
+    <Link to={to} className={`group relative block ${full ? "w-full" : "w-56 shrink-0 sm:w-64"}`}>
       {rank != null && (
         <span className="pointer-events-none absolute -left-3 -top-6 z-10 select-none text-[5rem] font-black leading-none text-ink [-webkit-text-stroke:2px_#3a3a4d]">
           {rank}
@@ -41,11 +67,19 @@ export default function TitleCard({ title, progress, rank, full = false }) {
             {title.rating ? <span className="text-amber-300">★ {Number(title.rating).toFixed(1)}</span> : null}
             {title.duration && <span className="text-gray-400">{title.duration}</span>}
           </div>
-          {title.synopsis && <p className="mt-1.5 line-clamp-2 text-[0.62rem] leading-relaxed text-gray-300/85">{title.synopsis}</p>}
+          {progress?.positionSec > 0
+            ? <p className="mt-1.5 text-[0.62rem] font-semibold text-primary">Continue from {fmtTime(progress.positionSec)}</p>
+            : (title.synopsis && <p className="mt-1.5 line-clamp-2 text-[0.62rem] leading-relaxed text-gray-300/85">{title.synopsis}</p>)}
           <div className="mt-2 flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[0.6rem] font-bold text-black">▶ Play</span>
-            <span className="grid h-6 w-6 place-items-center rounded-full border border-white/50 text-xs text-white">+</span>
-            <span className="grid h-6 w-6 place-items-center rounded-full border border-white/50 text-[0.6rem] text-white">ⓘ</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[0.62rem] font-bold text-black">
+              <PlayIcon className="h-3 w-3" /> {progress ? "Resume" : "Play"}
+            </span>
+            <button onClick={toggleList} title={inList ? "Remove from My List" : "Add to My List"} className={`grid h-7 w-7 place-items-center rounded-full border transition ${inList ? "border-primary bg-primary text-white" : "border-white/50 text-white hover:border-white hover:bg-white/15"}`}>
+              {inList ? <CheckIcon className="h-3.5 w-3.5" /> : <PlusIcon className="h-3.5 w-3.5" />}
+            </button>
+            <button onClick={goInfo} title="More info" className="grid h-7 w-7 place-items-center rounded-full border border-white/50 text-white transition hover:border-white hover:bg-white/15">
+              <InfoIcon className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </div>

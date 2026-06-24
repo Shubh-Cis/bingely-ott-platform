@@ -6,6 +6,7 @@ import { apiError } from "../../lib/axios";
 import { selectAuth } from "../../features/auth/authSlice";
 import Rail from "../../components/Rail";
 import SmartImage from "../../components/SmartImage";
+import { PlayIcon, PlusIcon, CheckIcon, ChevronDownIcon } from "../../components/Icon";
 
 export default function TitleDetail() {
   const { slug } = useParams();
@@ -16,6 +17,7 @@ export default function TitleDetail() {
   const [moreGenre, setMoreGenre] = useState(null);
   const [fav, setFav] = useState(false);
   const [seasonIdx, setSeasonIdx] = useState(0);
+  const [seasonOpen, setSeasonOpen] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -60,6 +62,8 @@ export default function TitleDetail() {
     title.duration ? ["Duration", title.duration] : null,
     isSeries && title.seasons?.length ? ["Seasons", title.seasons.length] : null,
     title.rating ? ["Rating", `★ ${Number(title.rating).toFixed(1)} / 10`] : null,
+    title.language ? ["Language", title.language] : null,
+    title.country ? ["Country", title.country] : null,
     ["Quality", "HD · 4K"],
   ].filter(Boolean);
 
@@ -110,16 +114,16 @@ export default function TitleDetail() {
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               {playTarget ? (
-                <Link to={playTarget} className="btn-light px-9 text-base">▶ Play</Link>
+                <Link to={playTarget} className="btn-light px-9 text-base"><PlayIcon className="h-5 w-5" /> Play</Link>
               ) : (
                 <span className="btn-ghost cursor-default px-9 text-base">Coming soon</span>
               )}
               {title.trailerUrl && (
-                <Link to={`/watch/${title.slug}?kind=trailer`} className="btn-ghost px-7 text-base">▶ Trailer</Link>
+                <Link to={`/watch/${title.slug}?kind=trailer`} className="btn-ghost px-7 text-base"><PlayIcon className="h-4 w-4" /> Trailer</Link>
               )}
               {kind === "viewer" && (
-                <button onClick={toggleFav} className="grid h-12 w-12 place-items-center rounded-full border border-white/30 bg-white/5 text-xl transition hover:border-primary hover:text-primary" title={fav ? "Remove from My List" : "Add to My List"}>
-                  {fav ? "✓" : "+"}
+                <button onClick={toggleFav} className={`icon-btn h-12 w-12 ${fav ? "border-primary bg-primary text-white" : ""}`} title={fav ? "Remove from My List" : "Add to My List"}>
+                  {fav ? <CheckIcon className="h-5 w-5" /> : <PlusIcon className="h-5 w-5" />}
                 </button>
               )}
             </div>
@@ -140,18 +144,38 @@ export default function TitleDetail() {
         </div>
       </section>
 
-      {/* ── Series: season selector + episodes ─────────────────────────── */}
+      {/* ── Series: season tabs + episodes ─────────────────────────────── */}
       {isSeries && title.seasons?.length > 0 && (
         <section className="mb-12">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-2xl font-bold tracking-tight">Episodes</h2>
-            {title.seasons.length > 1 && (
-              <select value={seasonIdx} onChange={(e) => setSeasonIdx(Number(e.target.value))} className="rounded-lg border border-edge bg-elevated px-3 py-2 text-sm outline-none focus:border-primary">
-                {title.seasons.map((s, idx) => (
-                  <option key={s.id} value={idx}>Season {s.number}{s.name ? ` — ${s.name}` : ""}</option>
-                ))}
-              </select>
-            )}
+            {/* Season dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setSeasonOpen((o) => !o)}
+                className="inline-flex min-w-[12rem] items-center justify-between gap-3 rounded-xl border border-white/15 bg-elevated px-4 py-2.5 text-sm font-semibold text-white transition hover:border-primary"
+              >
+                <span>Season {season?.number}{season?.name ? ` · ${season.name}` : ""}</span>
+                <ChevronDownIcon className={`h-4 w-4 text-gray-400 transition-transform ${seasonOpen ? "rotate-180" : ""}`} />
+              </button>
+              {seasonOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setSeasonOpen(false)} />
+                  <div className="absolute right-0 z-50 mt-2 max-h-80 w-60 overflow-auto rounded-xl border border-white/15 bg-surface p-1.5 shadow-2xl shadow-black/60 backdrop-blur-xl">
+                    {title.seasons.map((s, idx) => (
+                      <button
+                        key={s.id}
+                        onClick={() => { setSeasonIdx(idx); setSeasonOpen(false); }}
+                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition ${idx === seasonIdx ? "bg-gradient-to-r from-primary to-accent text-white" : "text-gray-300 hover:bg-white/10"}`}
+                      >
+                        <span>Season {s.number}{s.name ? ` · ${s.name}` : ""}</span>
+                        <span className="ml-2 shrink-0 text-xs opacity-70">{s.episodes?.length || 0} ep</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -181,6 +205,14 @@ export default function TitleDetail() {
               );
             }) : <p className="rounded-2xl border border-white/10 bg-surface/50 p-6 text-center text-gray-500">No episodes in this season yet.</p>}
           </div>
+        </section>
+      )}
+
+      {/* Series with no seasons added yet */}
+      {isSeries && !title.seasons?.length && (
+        <section className="mb-12">
+          <h2 className="mb-3 text-2xl font-bold tracking-tight">Episodes</h2>
+          <p className="rounded-2xl border border-white/10 bg-surface/50 p-6 text-center text-gray-500">Seasons &amp; episodes coming soon.</p>
         </section>
       )}
 

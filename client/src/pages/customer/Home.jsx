@@ -81,7 +81,8 @@ export default function Home() {
   const langTiles = (home.languages || []).map((l) => {
     const s = langStyle(l.name);
     const native = l.native || s.native;
-    return { key: l.name, label: native, sublabel: `${l.name} · ${l.count} ${l.count === 1 ? "title" : "titles"}`, watermark: native, image: l.image, grad: l.gradient || s.grad, to: `/search?language=${encodeURIComponent(l.name)}` };
+    // Show only the language (native big + roman) — no title counts/references.
+    return { key: l.name, label: native, sublabel: native === l.name ? null : l.name, watermark: native, image: l.image, grad: l.gradient || s.grad, to: `/search?language=${encodeURIComponent(l.name)}` };
   });
   const genreTiles = (home.categories || []).map((c) => {
     const s = genreStyle(c.name, c.slug);

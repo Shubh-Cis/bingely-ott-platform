@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import SmartImage from "./SmartImage";
 import HlsPlayer from "./HlsPlayer";
 import { mediaApi } from "../services/api";
+import { PlayIcon, PauseIcon, InfoIcon, VolumeOnIcon, VolumeOffIcon, ChevronLeftIcon, ChevronRightIcon } from "./Icon";
 
 async function resolveSrc(ref) {
   if (!ref) return "";
@@ -14,12 +15,8 @@ async function resolveSrc(ref) {
 }
 
 const Arrow = ({ dir, onClick }) => (
-  <button
-    onClick={onClick}
-    aria-label={dir < 0 ? "Previous" : "Next"}
-    className="grid h-12 w-12 place-items-center rounded-full border border-white/25 bg-black/30 text-2xl text-white backdrop-blur-md transition hover:scale-110 hover:border-white hover:bg-black/60"
-  >
-    {dir < 0 ? "‹" : "›"}
+  <button onClick={onClick} aria-label={dir < 0 ? "Previous" : "Next"} className="icon-btn h-12 w-12">
+    {dir < 0 ? <ChevronLeftIcon className="h-6 w-6" /> : <ChevronRightIcon className="h-6 w-6" />}
   </button>
 );
 
@@ -94,16 +91,16 @@ export default function Hero({ heroes }) {
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 {hero.videoUrl && (
                   <button onClick={play} className="btn-light px-8 text-base">
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">{!playing || paused ? <path d="M8 5v14l11-7z" /> : <path d="M6 5h4v14H6zM14 5h4v14h-4z" />}</svg>
+                    {!playing || paused ? <PlayIcon className="h-5 w-5" /> : <PauseIcon className="h-5 w-5" />}
                     {!playing || paused ? "Play" : "Pause"}
                   </button>
                 )}
                 {playing && (
-                  <button onClick={() => setMuted((m) => !m)} aria-label={muted ? "Unmute" : "Mute"} className="grid h-12 w-12 place-items-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur transition hover:bg-white/20">
-                    {muted ? "🔇" : "🔊"}
+                  <button onClick={() => setMuted((m) => !m)} aria-label={muted ? "Unmute" : "Mute"} className="icon-btn h-12 w-12">
+                    {muted ? <VolumeOffIcon className="h-5 w-5" /> : <VolumeOnIcon className="h-5 w-5" />}
                   </button>
                 )}
-                {hero.ctaUrl && <Link to={hero.ctaUrl} className="btn-ghost px-7 text-base">ⓘ {hero.ctaLabel || "More Info"}</Link>}
+                {hero.ctaUrl && <Link to={hero.ctaUrl} className="btn-ghost px-7 text-base"><InfoIcon className="h-5 w-5" /> {hero.ctaLabel || "More Info"}</Link>}
               </div>
             </div>
           </div>

@@ -73,6 +73,14 @@ export const adminApi = {
   create: (resource, body) => data(api.post(`/admin/${resource}`, body)),
   update: (resource, id, body) => data(api.patch(`/admin/${resource}/${id}`, body)),
   remove: (resource, id) => api.delete(`/admin/${resource}/${id}`),
+  // seasons + episodes (for SERIES titles)
+  seasons: (titleId) => data(api.get(`/admin/titles/${titleId}/seasons`)),
+  createSeason: (titleId, body) => data(api.post(`/admin/titles/${titleId}/seasons`, body)),
+  updateSeason: (id, body) => data(api.patch(`/admin/seasons/${id}`, body)),
+  deleteSeason: (id) => api.delete(`/admin/seasons/${id}`),
+  createEpisode: (seasonId, body) => data(api.post(`/admin/seasons/${seasonId}/episodes`, body)),
+  updateEpisode: (id, body) => data(api.patch(`/admin/episodes/${id}`, body)),
+  deleteEpisode: (id) => api.delete(`/admin/episodes/${id}`),
   // rails
   railAddTitle: (railId, titleId) => data(api.post(`/admin/rails/${railId}/items`, { titleId })),
   railRemoveTitle: (railId, titleId) => api.delete(`/admin/rails/${railId}/items/${titleId}`),

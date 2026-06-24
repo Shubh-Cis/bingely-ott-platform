@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { register as registerThunk, selectAuth } from "../../features/auth/authSlice";
+import AuthShell from "../../components/AuthShell";
 
 export default function Register() {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
@@ -15,30 +16,30 @@ export default function Register() {
   };
 
   return (
-    <div className="mx-auto max-w-md py-10">
-      <div className="card">
-        <h1 className="mb-4 text-2xl font-bold">Create your account</h1>
-        {error && <p className="mb-3 rounded bg-red-500/10 px-3 py-2 text-sm text-red-400">{error}</p>}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="label">Name</label>
-            <input className="input" {...register("name", { required: "Name required" })} />
-            {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>}
-          </div>
-          <div>
-            <label className="label">Email</label>
-            <input className="input" {...register("email", { required: "Email required" })} />
-            {errors.email && <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>}
-          </div>
-          <div>
-            <label className="label">Password (min 8 chars)</label>
-            <input type="password" className="input" {...register("password", { required: "Password required", minLength: { value: 8, message: "At least 8 characters" } })} />
-            {errors.password && <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>}
-          </div>
-          <button className="btn-primary w-full" disabled={isSubmitting}>{isSubmitting ? "Creating…" : "Create account"}</button>
-        </form>
-        <p className="mt-4 text-sm text-gray-400">Already have an account? <Link to="/login" className="text-primary">Sign in</Link></p>
-      </div>
-    </div>
+    <AuthShell
+      title="Create your account"
+      subtitle="Start streaming in minutes — it's free to sign up"
+      footer={<>Already have an account? <Link to="/login" className="font-semibold text-primary hover:underline">Sign in</Link></>}
+    >
+      {error && <p className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">{error}</p>}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div>
+          <label className="label">Name</label>
+          <input className="input" placeholder="Your name" {...register("name", { required: "Name required" })} />
+          {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>}
+        </div>
+        <div>
+          <label className="label">Email</label>
+          <input className="input" placeholder="you@example.com" {...register("email", { required: "Email required" })} />
+          {errors.email && <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>}
+        </div>
+        <div>
+          <label className="label">Password (min 8 chars)</label>
+          <input type="password" className="input" placeholder="••••••••" {...register("password", { required: "Password required", minLength: { value: 8, message: "At least 8 characters" } })} />
+          {errors.password && <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>}
+        </div>
+        <button className="btn-primary w-full" disabled={isSubmitting}>{isSubmitting ? "Creating…" : "Create account"}</button>
+      </form>
+    </AuthShell>
   );
 }
