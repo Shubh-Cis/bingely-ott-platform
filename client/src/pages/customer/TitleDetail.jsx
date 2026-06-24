@@ -1,15 +1,24 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { catalogApi, accountApi } from "../../services/api";
+import { catalogApi, accountApi, subscriptionApi, mediaApi } from "../../services/api";
 import { apiError } from "../../lib/axios";
 import { selectAuth } from "../../features/auth/authSlice";
 import Rail from "../../components/Rail";
 import SmartImage from "../../components/SmartImage";
+import HlsPlayer from "../../components/HlsPlayer";
 import { PlayIcon, PlusIcon, CheckIcon, ChevronDownIcon } from "../../components/Icon";
+
+// Resolve a stored video reference (media:<id> or a URL) into a playable URL.
+async function resolveSrc(ref) {
+  if (!ref) return "";
+  if (ref.startsWith("media:")) { const { url } = await mediaApi.playUrl(ref.slice("media:".length)); return url; }
+  return ref;
+}
 
 export default function TitleDetail() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const { kind } = useSelector(selectAuth);
   const [title, setTitle] = useState(null);
   const [related, setRelated] = useState([]);
@@ -19,10 +28,13 @@ export default function TitleDetail() {
   const [seasonIdx, setSeasonIdx] = useState(0);
   const [seasonOpen, setSeasonOpen] = useState(false);
   const [error, setError] = useState("");
+  const [inlineSrc, setInlineSrc] = useState(""); // mobile: play in-place instead of new page
+  const [inlineBusy, setInlineBusy] = useState(false);
 
   useEffect(() => {
     setTitle(null);
     setSeasonIdx(0);
+    setInlineSrc("");
     setRelated([]); setMoreType([]); setMoreGenre(null);
     catalogApi
       .title(slug)
@@ -54,6 +66,29 @@ export default function TitleDetail() {
   const playTarget = isSeries
     ? (firstEpisode ? `/watch/${title.slug}?ep=${firstEpisode.id}` : null)
     : (title.videoUrl ? `/watch/${title.slug}` : null);
+  const playRef = isSeries ? firstEpisode?.videoUrl : title.videoUrl;
+
+  // Keep Continue Watching working from the inline player too.
+  const onProgress = (position, duration) => {
+    if (kind === "viewer") accountApi.saveProgress({ titleId: title.id, episodeId: isSeries ? firstEpisode?.id : null, kind: isSeries ? "EPISODE" : "MOVIE", positionSec: position, durationSec: duration }).catch(() => {});
+  };
+
+  // Mobile: play in-place in the hero instead of opening the full player page.
+  // Desktop keeps the normal navigation. Honours the same login/subscription gate.
+  const onPlayClick = async (e) => {
+    if (window.innerWidth >= 640) return; // desktop → let the <Link> navigate
+    e.preventDefault();
+    if (!playRef) return;
+    if (kind !== "viewer") return navigate("/login", { state: { from: { pathname: `/watch/${title.slug}` } } });
+    setInlineBusy(true);
+    try {
+      const sub = await subscriptionApi.mine();
+      const active = sub && ["ACTIVE", "TRIALING"].includes(sub.status);
+      if (!active) return navigate("/plans");
+      setInlineSrc(await resolveSrc(playRef));
+    } catch { navigate(playTarget || `/watch/${title.slug}`); }
+    finally { setInlineBusy(false); }
+  };
   const season = title.seasons?.[seasonIdx];
 
   const facts = [
@@ -69,29 +104,39 @@ export default function TitleDetail() {
 
   return (
     <div className="animate-fadeIn">
-      {/* ── Cinematic hero ─────────────────────────────────────────────── */}
-      <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] -mt-20 mb-12 min-h-[90vh] w-screen overflow-hidden">
+      {/* ── Cinematic hero (mobile: centered stack · desktop: side-by-side) ── */}
+      <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] -mt-20 mb-10 w-screen overflow-hidden sm:mb-12 sm:min-h-[90vh]">
+        {inlineSrc ? (
+          // Mobile in-place player: text details hidden, video plays here.
+          <div className="relative w-full bg-black pt-16">
+            <div className="aspect-video w-full">
+              <HlsPlayer src={inlineSrc} poster={title.backdropUrl || title.posterUrl} onProgress={onProgress} className="h-full w-full bg-black object-contain" />
+            </div>
+            <button onClick={() => setInlineSrc("")} aria-label="Close player" className="icon-btn absolute right-3 top-20 h-10 w-10 text-lg">✕</button>
+          </div>
+        ) : (
+        <>
         <SmartImage src={title.backdropUrl || title.posterUrl} alt={title.title} label={title.title} className="absolute inset-0 h-full w-full animate-kenburns object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/50 to-ink/10" />
-        <div className="absolute inset-0 bg-gradient-to-r from-ink/95 via-ink/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/55 to-ink/20" />
+        <div className="absolute inset-0 bg-gradient-to-r from-ink/90 via-ink/45 to-transparent sm:via-ink/30" />
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-ink to-transparent" />
 
-        <div className="relative mx-auto flex max-w-7xl flex-col gap-10 px-4 pb-16 pt-44 sm:flex-row sm:items-end sm:px-6 lg:gap-14">
-          {/* Bigger poster */}
-          <div className="group w-52 shrink-0 overflow-hidden rounded-3xl ring-1 ring-white/15 shadow-2xl shadow-black/80 transition duration-300 hover:-translate-y-1 hover:ring-white/30 sm:w-72 lg:w-[22rem]">
+        <div className="relative mx-auto flex max-w-7xl flex-col items-center gap-6 px-4 pb-10 pt-28 text-center sm:flex-row sm:items-end sm:gap-10 sm:pb-16 sm:pt-44 sm:text-left lg:gap-14 sm:px-6">
+          {/* Poster — smaller & centered on mobile */}
+          <div className="group w-36 shrink-0 overflow-hidden rounded-2xl ring-1 ring-white/15 shadow-2xl shadow-black/80 transition duration-300 hover:-translate-y-1 hover:ring-white/30 sm:w-72 sm:rounded-3xl lg:w-[22rem]">
             <SmartImage src={title.posterUrl || title.backdropUrl} alt={title.title} label={title.title} className="aspect-[2/3] h-full w-full object-cover transition duration-500 group-hover:scale-105" />
           </div>
 
           {/* Info */}
-          <div className="max-w-2xl animate-riseIn pb-2">
+          <div className="w-full max-w-2xl animate-riseIn pb-2">
             {title.badge && (
               <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest backdrop-blur">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary" /> {title.badge}
               </span>
             )}
-            <h1 className="text-4xl font-black leading-[0.98] tracking-tight drop-shadow-2xl sm:text-6xl lg:text-7xl">{title.title}</h1>
+            <h1 className="text-3xl font-black leading-[1.02] tracking-tight drop-shadow-2xl sm:text-6xl lg:text-7xl">{title.title}</h1>
 
-            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm sm:mt-5 sm:justify-start sm:gap-x-4">
               {title.rating ? <span className="font-bold text-green-400">{Math.round(title.rating * 10)}% Match</span> : null}
               <span className="text-gray-300">{title.year}</span>
               <span className="rounded border border-white/25 px-1.5 py-0.5 text-xs font-medium text-gray-200">{title.type}</span>
@@ -101,7 +146,7 @@ export default function TitleDetail() {
             </div>
 
             {title.categories?.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
                 {title.categories.map((c) => (
                   <Link key={c.id} to={`/search?category=${c.slug}`} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300 transition hover:border-primary hover:text-white">
                     {c.name}
@@ -110,19 +155,19 @@ export default function TitleDetail() {
               </div>
             )}
 
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-gray-200/90">{title.synopsis}</p>
+            <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-gray-200/90 sm:mt-6 sm:text-base sm:mx-0">{title.synopsis}</p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3 sm:mt-8 sm:justify-start">
               {playTarget ? (
-                <Link to={playTarget} className="btn-light px-9 text-base"><PlayIcon className="h-5 w-5" /> Play</Link>
+                <Link to={playTarget} onClick={onPlayClick} className="btn-light w-full justify-center px-9 text-base sm:w-auto"><PlayIcon className="h-5 w-5" /> {inlineBusy ? "Loading…" : "Play"}</Link>
               ) : (
-                <span className="btn-ghost cursor-default px-9 text-base">Coming soon</span>
+                <span className="btn-ghost w-full cursor-default justify-center px-9 text-base sm:w-auto">Coming soon</span>
               )}
               {title.trailerUrl && (
-                <Link to={`/watch/${title.slug}?kind=trailer`} className="btn-ghost px-7 text-base"><PlayIcon className="h-4 w-4" /> Trailer</Link>
+                <Link to={`/watch/${title.slug}?kind=trailer`} className="btn-ghost flex-1 justify-center px-7 text-base sm:flex-none"><PlayIcon className="h-4 w-4" /> Trailer</Link>
               )}
               {kind === "viewer" && (
-                <button onClick={toggleFav} className={`icon-btn h-12 w-12 ${fav ? "border-primary bg-primary text-white" : ""}`} title={fav ? "Remove from My List" : "Add to My List"}>
+                <button onClick={toggleFav} className={`icon-btn h-12 w-12 shrink-0 ${fav ? "border-primary bg-primary text-white" : ""}`} title={fav ? "Remove from My List" : "Add to My List"}>
                   {fav ? <CheckIcon className="h-5 w-5" /> : <PlusIcon className="h-5 w-5" />}
                 </button>
               )}
@@ -130,6 +175,8 @@ export default function TitleDetail() {
             <p className="mt-3 text-xs text-gray-500">Trailers are free to watch. Full {isSeries ? "episodes" : "titles"} require a subscription.</p>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* ── Quick facts ────────────────────────────────────────────────── */}
@@ -186,10 +233,10 @@ export default function TitleDetail() {
                 <Wrapper
                   key={ep.id}
                   {...(playable ? { to: `/watch/${title.slug}?ep=${ep.id}` } : {})}
-                  className={`group flex items-center gap-4 rounded-2xl border border-white/10 bg-surface/50 p-3 transition ${playable ? "hover:border-primary/40 hover:bg-elevated" : "opacity-60"}`}
+                  className={`group flex items-center gap-3 rounded-2xl border border-white/10 bg-surface/50 p-2.5 transition sm:gap-4 sm:p-3 ${playable ? "hover:border-primary/40 hover:bg-elevated" : "opacity-60"}`}
                 >
-                  <span className="w-7 shrink-0 text-center text-xl font-black text-gray-600">{ep.number}</span>
-                  <div className="relative aspect-video w-44 shrink-0 overflow-hidden rounded-xl">
+                  <span className="w-5 shrink-0 text-center text-base font-black text-gray-600 sm:w-7 sm:text-xl">{ep.number}</span>
+                  <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg sm:w-44 sm:rounded-xl">
                     <SmartImage src={ep.thumbnailUrl || title.backdropUrl} alt={ep.title} label={ep.title} className="h-full w-full object-cover" />
                     {playable && <span className="absolute inset-0 grid place-items-center bg-black/40 text-3xl text-white opacity-0 transition group-hover:opacity-100">▶</span>}
                   </div>

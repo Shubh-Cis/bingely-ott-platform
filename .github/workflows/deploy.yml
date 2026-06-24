@@ -21,7 +21,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}      # the PRIVATE key (PEM contents)
           script: |
             set -e
-            cd /opt/bingely
+            cd /var/www/html/bingely.in
             echo "▶ Pulling latest code…"
             git pull origin main
             echo "▶ Building & starting containers…"

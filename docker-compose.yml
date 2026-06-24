@@ -4,7 +4,9 @@
 #   api (Express)        the backend on :4001 (internal)
 #   worker               FFmpeg transcode worker (same image as api)
 #   postgres             database (data persisted in the "pgdata" volume)
-#   redis                cache/queue store (optional)
+#
+# The transcode queue is AWS SQS (configured via server/.env), so no Redis is
+# needed.
 #
 # Secrets are read at runtime from server/.env (env_file) — they live on the
 # server and are NEVER in git. Compose-level vars (Postgres creds, the Stripe
@@ -17,6 +19,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-bingely}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bingely}
       POSTGRES_DB: ${POSTGRES_DB:-bingely}
+    ports:
+      # Bound to the server's localhost ONLY (not public). Connect from your
+      # machine through an SSH tunnel to import your data manually.
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data   # data survives container restarts/redeploys
     healthcheck:
@@ -25,15 +31,13 @@ services:
       timeout: 5s
       retries: 12
 
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-
   api:
     build: ./server
     restart: unless-stopped
-    # On start: sync the DB schema, then run the API.
-    command: sh -c "npx prisma db push --accept-data-loss && node src/server.js"
+    # Just run the API. The database schema/data is managed MANUALLY by you
+    # (import your own dump, or run `docker compose exec api npx prisma db push`
+    # by hand when the schema changes). Nothing touches the DB automatically.
+    command: node src/server.js
     env_file: ./server/.env               # JWT, AWS, Stripe SECRET keys, etc. (server-side only)
     environment:
       NODE_ENV: production
